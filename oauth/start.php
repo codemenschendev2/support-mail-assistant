@@ -21,7 +21,10 @@ if (file_exists($tokenPath)) {
             !isset($tokenData['expires_in']) || !isset($tokenData['created']) ||
             (time() < ($tokenData['created'] + $tokenData['expires_in']))
         ) {
-            echo "Đã xác thực";
+
+            // Redirect to dashboard if already authenticated
+            $adminKey = Env::get('ADMIN_SHARED_KEY');
+            header("Location: ../views/dashboard.php?key=" . urlencode($adminKey));
             exit;
         }
     }

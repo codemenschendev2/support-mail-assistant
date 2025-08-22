@@ -110,7 +110,7 @@ try {
 
     // Success message with link
     echo "Đã tạo Draft<br>";
-    echo "<a href='../views/list_drafts.php'>Xem danh sách Draft</a>";
+    echo "<a href='list_drafts.php?key=$adminKey'>Xem danh sách Draft</a>";
 } catch (Exception $e) {
     http_response_code(500);
     echo "Lỗi: " . htmlspecialchars($e->getMessage());

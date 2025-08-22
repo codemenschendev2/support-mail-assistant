@@ -43,8 +43,10 @@ try {
         exit;
     }
 
-    // Success message
-    echo "Xác thực thành công";
+    // Success - redirect to dashboard
+    $adminKey = Env::get('ADMIN_SHARED_KEY');
+    header("Location: ../views/dashboard.php?key=" . urlencode($adminKey) . "&auth=success");
+    exit;
 } catch (Exception $e) {
     echo "Lỗi xử lý OAuth callback: " . htmlspecialchars($e->getMessage());
 }

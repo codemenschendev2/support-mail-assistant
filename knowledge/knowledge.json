@@ -1,5 +1,5 @@
 {
-  "allowed_senders": ["google-gemini-noreply@google.com"],
-  "reply_template_text": "Subject: Re: {{original_subject}}\n\nChào bạn,\n\nMình đã kiểm tra trạng thái theo yêu cầu:\n• Trạng thái hiện tại: [mô tả ngắn gọn]\n• Mốc thời gian gần nhất: [ngày/giờ]\n• Bước tiếp theo: [bước tiếp theo]\n\nNếu bạn cần thêm thông tin cụ thể, hãy trả lời email này để mình cập nhật chi tiết hơn.\n\nTrân trọng,\nSupport Mail Assistant",
+  "allowed_senders": ["jptesting3@gmail.com"],
+  "reply_template_text": "Subject: Re: {{original_subject}}\n\nHello,\n\nThank you for your email. I have reviewed your request and here is the current status:\n\n• Current Status: [Brief description]\n• Last Update: [Date/Time]\n• Next Steps: [Next action]\n\nIf you need more specific information, please reply to this email and I will provide additional details.\n\nBest regards,\nSupport Mail Assistant",
   "signature": "Support Mail Assistant"
 }
