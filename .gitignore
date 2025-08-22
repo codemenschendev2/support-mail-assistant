@@ -1,0 +1,71 @@
+# Environment files
+.env
+env.example
+
+# Credentials
+credentials/oauth-client.json
+credentials/token.json
+
+# Composer
+/vendor/
+composer.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+tmp/
+
+# Uploads
+uploads/
+
+# Database
+*.db
+*.sqlite
+*.sql
+
+# Backup files
+*.bak
+*.backup
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP specific
+*.php~
+*.php.bak
+sessions/
+
+# Error logs
+error_log
+php_errors.log
+
+# Sensitive config files
+config.php
+database.php
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+build/
+dist/
+
+# Testing
+.phpunit.result.cache
+coverage/
