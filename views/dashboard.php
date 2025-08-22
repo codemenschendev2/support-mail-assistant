@@ -12,7 +12,7 @@ require_once __DIR__ . '/../bootstrap.php';
 $adminKey = Env::get('ADMIN_SHARED_KEY');
 if (!$adminKey || $_GET['key'] !== $adminKey) {
     http_response_code(403);
-    echo "Lỗi: Không có quyền truy cập";
+    echo "Error: Access denied";
     exit;
 }
 

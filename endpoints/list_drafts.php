@@ -16,7 +16,7 @@ use Google\Service\Gmail;
 $adminKey = Env::get('ADMIN_SHARED_KEY');
 if (!$adminKey || $_GET['key'] !== $adminKey) {
     http_response_code(403);
-    echo "Lỗi: Không có quyền truy cập";
+    echo "Error: Access denied";
     exit;
 }
 
@@ -35,12 +35,12 @@ try {
     echo "<p>Total drafts found: $draftCount</p>";
 
     if (empty($drafts->getDrafts())) {
-        echo "<h2>Danh sách Draft</h2>";
-        echo "<p>Không có draft email nào.</p>";
+        echo "<h2>Draft List</h2>";
+        echo "<p>No draft emails found.</p>";
         exit;
     }
 
-    echo "<h2>Danh sách Draft (20 gần nhất)</h2>";
+    echo "<h2>Draft List (20 most recent)</h2>";
     echo "<table border='1' style='border-collapse: collapse; width: 100%;'>";
     echo "<tr style='background-color: #f0f0f0;'>";
     echo "<th style='padding: 8px;'>To</th>";
@@ -52,25 +52,21 @@ try {
     foreach ($drafts->getDrafts() as $draft) {
         $draftId = $draft->getId();
 
-        // Debug: Hiển thị thông tin draft
-        echo "<p><strong>Draft ID:</strong> " . $draftId . "</p>";
+
 
         try {
-            // Lấy message chi tiết từ draft ID
+            // Get detailed message from draft ID
             $draftDetail = $gmailService->users_drafts->get('me', $draftId);
             $message = $draftDetail->getMessage();
 
-            echo "<p><strong>Draft Detail:</strong> " . ($draftDetail ? 'OK' : 'NULL') . "</p>";
-            echo "<p><strong>Message:</strong> " . ($message ? 'OK' : 'NULL') . "</p>";
 
-            // Kiểm tra message và payload
+
+            // Check message and payload
             if (!$message || !$message->getPayload()) {
-                echo "<p style='color: red;'>Message hoặc Payload null - bỏ qua</p>";
-                continue; // Bỏ qua draft không hợp lệ
+                continue; // Skip invalid draft
             }
 
             $payload = $message->getPayload();
-            echo "<p><strong>Payload MIME Type:</strong> " . $payload->getMimeType() . "</p>";
 
             $headers = $payload->getHeaders();
 
@@ -97,14 +93,10 @@ try {
 
             if ($payload->getBody() && $payload->getBody()->getData()) {
                 $body = $payload->getBody()->getData();
-                echo "<p><strong>Body từ getBody():</strong> " . substr($body, 0, 50) . "...</p>";
             } elseif ($payload->getParts()) {
-                echo "<p><strong>Số parts:</strong> " . count($payload->getParts()) . "</p>";
                 foreach ($payload->getParts() as $index => $part) {
-                    echo "<p><strong>Part $index:</strong> " . $part->getMimeType() . "</p>";
                     if ($part->getMimeType() === 'text/plain' && $part->getBody() && $part->getBody()->getData()) {
                         $body = $part->getBody()->getData();
-                        echo "<p><strong>Body từ part $index:</strong> " . substr($body, 0, 50) . "...</p>";
                         break;
                     }
                 }
@@ -114,7 +106,6 @@ try {
             if ($body) {
                 // Sử dụng base64url_decode thay vì base64_decode
                 $decodedBody = base64url_decode($body);
-                echo "<p><strong>Decoded body:</strong> " . substr($decodedBody, 0, 100) . "...</p>";
 
                 // Truncate long body
                 if (strlen($decodedBody) > 100) {
@@ -122,8 +113,6 @@ try {
                 } else {
                     $body = $decodedBody;
                 }
-            } else {
-                echo "<p style='color: red;'>Không tìm thấy body</p>";
             }
 
             // Escape HTML
@@ -140,15 +129,12 @@ try {
             echo "</td>";
             echo "</tr>";
         } catch (Exception $e) {
-            echo "<p style='color: red;'>Lỗi lấy draft detail: " . htmlspecialchars($e->getMessage()) . "</p>";
+            echo "<p style='color: red;'>Error getting draft detail: " . htmlspecialchars($e->getMessage()) . "</p>";
         }
-
-        // Chỉ xử lý 1 draft để debug
-        break;
     }
 
     echo "</table>";
 } catch (Exception $e) {
     http_response_code(500);
-    echo "Lỗi: " . htmlspecialchars($e->getMessage());
+    echo "Error: " . htmlspecialchars($e->getMessage());
 }

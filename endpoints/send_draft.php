@@ -16,14 +16,14 @@ use Google\Service\Gmail;
 $adminKey = Env::get('ADMIN_SHARED_KEY');
 if (!$adminKey || $_GET['key'] !== $adminKey) {
     http_response_code(403);
-    echo "Lỗi: Không có quyền truy cập";
+    echo "Error: Access denied";
     exit;
 }
 
 // Check if draft ID is provided
 if (!isset($_GET['id'])) {
     http_response_code(400);
-    echo "Lỗi: Thiếu ID của draft";
+    echo "Error: Missing draft ID";
     exit;
 }
 
@@ -48,16 +48,16 @@ try {
     }
 
     // Success message
-    echo "<h2>Kết quả gửi email</h2>";
-    echo "<p style='color: green; font-weight: bold;'>Đã gửi thành công!</p>";
+    echo "<h2>Email Send Result</h2>";
+    echo "<p style='color: green; font-weight: bold;'>Sent successfully!</p>";
     echo "<p><strong>Message ID:</strong> " . htmlspecialchars($sentMessage->getId()) . "</p>";
     echo "<p><strong>Thread ID:</strong> " . htmlspecialchars($sentMessage->getThreadId()) . "</p>";
 
     // Add link back to drafts list
-    echo "<br><a href='list_drafts.php?key=$adminKey' style='color: blue; text-decoration: none;'>← Quay lại danh sách Draft</a>";
+    echo "<br><a href='list_drafts.php?key=$adminKey' style='color: blue; text-decoration: none;'>← Back to Draft List</a>";
 } catch (Exception $e) {
     http_response_code(500);
-    echo "<h2>Lỗi gửi email</h2>";
-    echo "<p style='color: red;'>Lỗi: " . htmlspecialchars($e->getMessage()) . "</p>";
-    echo "<br><a href='list_drafts.php?key=$adminKey' style='color: blue; text-decoration: none;'>← Quay lại danh sách Draft</a>";
+    echo "<h2>Email Send Error</h2>";
+    echo "<p style='color: red;'>Error: " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<br><a href='list_drafts.php?key=$adminKey' style='color: blue; text-decoration: none;'>← Back to Draft List</a>";
 }

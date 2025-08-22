@@ -27,15 +27,17 @@ try {
     // Get allowed senders
     $allowedSenders = $knowledge->getAllowedSenders();
     if (empty($allowedSenders)) {
-        throw new RuntimeException('Không có danh sách email được phép');
+        throw new RuntimeException('No allowed email list configured');
     }
 
-    // Build Gmail query for allowed senders
+    // Build Gmail query for allowed senders - same as get_unread_emails.php
     $fromQuery = implode(' OR ', array_map(function ($email) {
         return 'from:' . trim($email);
     }, $allowedSenders));
 
-    $gmailQuery = "in:inbox newer_than:7d ($fromQuery)";
+    // Use same query as get_unread_emails.php: only unread emails from today
+    $today = date('Y/m/d');
+    $gmailQuery = "in:inbox is:unread after:$today ($fromQuery)";
 
     // Get Google client and Gmail service
     $client = makeGoogleClient();
@@ -48,70 +50,93 @@ try {
     ]);
 
     if (empty($messages->getMessages())) {
-        echo "Không có email mới từ người gửi được phép";
+        echo "No new emails from allowed senders";
         exit;
     }
 
-    // Get the latest email (Gmail API returns newest first by default)
-    $latestMessage = $messages->getMessages()[0];
-    $message = $gmailService->users_messages->get('me', $latestMessage->getId());
+    $totalEmails = count($messages->getMessages());
+    $createdDrafts = [];
 
-    // Extract email details
-    $headers = $message->getPayload()->getHeaders();
-    $subject = '';
-    $from = '';
-    $to = '';
+    echo "<h3>Processing $totalEmails emails...</h3>";
 
-    foreach ($headers as $header) {
-        $name = strtolower($header->getName());
-        $value = $header->getValue();
+    // Process all emails, not just the latest one
+    foreach ($messages->getMessages() as $index => $messageItem) {
+        try {
+            $message = $gmailService->users_messages->get('me', $messageItem->getId());
 
-        switch ($name) {
-            case 'subject':
-                $subject = $value;
-                break;
-            case 'from':
-                $from = $value;
-                break;
-            case 'to':
-                $to = $value;
-                break;
+            // Extract email details
+            $headers = $message->getPayload()->getHeaders();
+            $subject = '';
+            $from = '';
+            $to = '';
+
+            foreach ($headers as $header) {
+                $name = strtolower($header->getName());
+                $value = $header->getValue();
+
+                switch ($name) {
+                    case 'subject':
+                        $subject = $value;
+                        break;
+                    case 'from':
+                        $from = $value;
+                        break;
+                    case 'to':
+                        $to = $value;
+                        break;
+                }
+            }
+
+            // Get reply template and replace placeholder
+            $replyTemplate = $knowledge->getReplyTemplate();
+            $replyContent = str_replace('{{original_subject}}', $subject, $replyTemplate);
+
+            // Add signature
+            $signature = $knowledge->getSignature();
+            $fullReply = $replyContent . "\n\n" . $signature;
+
+            // Create MIME message
+            $mimeMessage = "MIME-Version: 1.0\r\n";
+            $mimeMessage .= "Content-Type: text/plain; charset=UTF-8\r\n";
+            $mimeMessage .= "Content-Transfer-Encoding: 7bit\r\n";
+            $mimeMessage .= "To: $from\r\n";
+            $mimeMessage .= "Subject: Re: $subject\r\n";
+            $mimeMessage .= "In-Reply-To: <{$messageItem->getId()}@gmail.com>\r\n";
+            $mimeMessage .= "References: <{$messageItem->getId()}@gmail.com>\r\n\r\n";
+            $mimeMessage .= $fullReply;
+
+            // Encode MIME message using base64url_encode function
+            $rawMessage = base64url_encode($mimeMessage);
+
+            // Create Gmail draft
+            $draft = new \Google\Service\Gmail\Draft();
+            $draft->setMessage(new \Google\Service\Gmail\Message([
+                'raw' => $rawMessage
+            ]));
+
+            $createdDraft = $gmailService->users_drafts->create('me', $draft);
+            $createdDrafts[] = [
+                'id' => $createdDraft->getId(),
+                'from' => $from,
+                'subject' => $subject
+            ];
+
+            echo "<div style='color: green; margin: 5px 0;'>✅ Draft created for email from: $from</div>";
+        } catch (Exception $e) {
+            echo "<div style='color: red; margin: 5px 0;'>❌ Error creating draft for email: " . htmlspecialchars($e->getMessage()) . "</div>";
         }
     }
 
-    // Get reply template and replace placeholder
-    $replyTemplate = $knowledge->getReplyTemplate();
-    $replyContent = str_replace('{{original_subject}}', $subject, $replyTemplate);
+    // Summary
+    $successCount = count($createdDrafts);
+    echo "<hr>";
+    echo "<h3>📊 Results:</h3>";
+    echo "<p><strong>Successfully created:</strong> $successCount/$totalEmails drafts</p>";
 
-    // Add signature
-    $signature = $knowledge->getSignature();
-    $fullReply = $replyContent . "\n\n" . $signature;
-
-    // Create MIME message
-    $mimeMessage = "MIME-Version: 1.0\r\n";
-    $mimeMessage .= "Content-Type: text/plain; charset=UTF-8\r\n";
-    $mimeMessage .= "Content-Transfer-Encoding: 7bit\r\n";
-    $mimeMessage .= "To: $from\r\n";
-    $mimeMessage .= "Subject: Re: $subject\r\n";
-    $mimeMessage .= "In-Reply-To: <{$latestMessage->getId()}@gmail.com>\r\n";
-    $mimeMessage .= "References: <{$latestMessage->getId()}@gmail.com>\r\n\r\n";
-    $mimeMessage .= $fullReply;
-
-    // Encode MIME message using base64url_encode function
-    $rawMessage = base64url_encode($mimeMessage);
-
-    // Create Gmail draft
-    $draft = new \Google\Service\Gmail\Draft();
-    $draft->setMessage(new \Google\Service\Gmail\Message([
-        'raw' => $rawMessage
-    ]));
-
-    $createdDraft = $gmailService->users_drafts->create('me', $draft);
-
-    // Success message with link
-    echo "Đã tạo Draft<br>";
-    echo "<a href='list_drafts.php?key=$adminKey'>Xem danh sách Draft</a>";
+    if ($successCount > 0) {
+        echo "<p><a href='list_drafts.php?key=$adminKey' style='color: blue; text-decoration: none;'>📋 View Draft List ($successCount)</a></p>";
+    }
 } catch (Exception $e) {
     http_response_code(500);
-    echo "Lỗi: " . htmlspecialchars($e->getMessage());
+    echo "Error: " . htmlspecialchars($e->getMessage());
 }

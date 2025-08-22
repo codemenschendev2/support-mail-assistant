@@ -1,0 +1,504 @@
+openapi: 3.0.0
+info:
+  title: Support Mail Assistant GPT
+  description: An AI assistant that connects with Gmail to check incoming emails, prepare draft replies based on knowledge rules, and send them upon approval
+  version: 1.0.0
+  contact:
+    name: Codemenschen
+    url: https://apt.codemenschen.at/
+    email: support@codemenschen.at
+
+servers:
+  - url: https://apt.codemenschen.at/
+    description: Production server
+  - url: http://localhost/support-mail-assistant
+    description: Local development server
+
+paths:
+  /gmail/inbox:
+    get:
+      summary: Get unread emails from Gmail inbox
+      description: Retrieve unread emails from authorized senders based on knowledge base configuration
+      parameters:
+        - name: maxResults
+          in: query
+          description: Maximum number of emails to return
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: filter
+          in: query
+          description: Filter emails by sender or date
+          required: false
+          schema:
+            type: string
+            enum: [today, week, month, all]
+            default: today
+      responses:
+        '200':
+          description: Successfully retrieved emails
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailListResponse'
+        '401':
+          description: Unauthorized - OAuth token expired or invalid
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Internal server error
+
+  /gmail/drafts:
+    get:
+      summary: List Gmail drafts
+      description: Retrieve list of email drafts created by the system
+      parameters:
+        - name: maxResults
+          in: query
+          description: Maximum number of drafts to return
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Successfully retrieved drafts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftListResponse'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+    post:
+      summary: Create email draft
+      description: Create a new email draft based on incoming email and template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDraftRequest'
+      responses:
+        '201':
+          description: Draft created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftResponse'
+        '400':
+          description: Bad request - Invalid input data
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /gmail/drafts/{draftId}/send:
+    post:
+      summary: Send email draft
+      description: Send a previously created email draft
+      parameters:
+        - name: draftId
+          in: path
+          required: true
+          description: ID of the draft to send
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendResponse'
+        '404':
+          description: Draft not found
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /knowledge/templates:
+    get:
+      summary: Get reply templates
+      description: Retrieve available reply templates from knowledge base
+      responses:
+        '200':
+          description: Successfully retrieved templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateListResponse'
+        '500':
+          description: Internal server error
+
+    post:
+      summary: Create or update reply template
+      description: Add new template or modify existing one
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateRequest'
+      responses:
+        '201':
+          description: Template created/updated successfully
+        '400':
+          description: Bad request - Invalid template data
+        '500':
+          description: Internal server error
+
+  /knowledge/senders:
+    get:
+      summary: Get allowed senders
+      description: Retrieve list of email addresses allowed to send emails
+      responses:
+        '200':
+          description: Successfully retrieved senders
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SenderListResponse'
+        '500':
+          description: Internal server error
+
+    post:
+      summary: Add allowed sender
+      description: Add new email address to allowed senders list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SenderRequest'
+      responses:
+        '201':
+          description: Sender added successfully
+        '400':
+          description: Bad request - Invalid email format
+        '409':
+          description: Sender already exists
+        '500':
+          description: Internal server error
+
+  /auth/status:
+    get:
+      summary: Check authentication status
+      description: Verify OAuth token validity and expiration
+      responses:
+        '200':
+          description: Authentication status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatusResponse'
+        '401':
+          description: Not authenticated
+        '500':
+          description: Internal server error
+
+  /auth/refresh:
+    post:
+      summary: Refresh OAuth token
+      description: Refresh expired OAuth access token
+      responses:
+        '200':
+          description: Token refreshed successfully
+        '400':
+          description: Bad request - Invalid refresh token
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    Email:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Gmail message ID
+        threadId:
+          type: string
+          description: Gmail thread ID
+        from:
+          type: string
+          description: Sender email address
+        subject:
+          type: string
+          description: Email subject line
+        date:
+          type: string
+          format: date-time
+          description: Email received date
+        snippet:
+          type: string
+          description: Email content preview
+        isUnread:
+          type: boolean
+          description: Whether email is unread
+        isFromAllowedSender:
+          type: boolean
+          description: Whether sender is in allowed list
+      required:
+        - id
+        - from
+        - subject
+        - date
+
+    EmailListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        count:
+          type: integer
+          description: Number of emails returned
+        emails:
+          type: array
+          items:
+            $ref: '#/components/schemas/Email'
+        filter:
+          type: string
+          description: Applied filter criteria
+        timestamp:
+          type: string
+          format: date-time
+
+    Draft:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Gmail draft ID
+        message:
+          $ref: '#/components/schemas/Email'
+        template:
+          type: string
+          description: Template used for draft
+        status:
+          type: string
+          enum: [draft, pending, sent]
+        createdAt:
+          type: string
+          format: date-time
+        modifiedAt:
+          type: string
+          format: date-time
+
+    DraftListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        count:
+          type: integer
+        drafts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Draft'
+
+    CreateDraftRequest:
+      type: object
+      properties:
+        emailId:
+          type: string
+          description: ID of email to reply to
+        templateId:
+          type: string
+          description: Template to use for reply
+        customContent:
+          type: string
+          description: Additional custom content
+        signature:
+          type: string
+          description: Custom signature to use
+      required:
+        - emailId
+        - templateId
+
+    DraftResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        draft:
+          $ref: '#/components/schemas/Draft'
+        message:
+          type: string
+          description: Success message
+
+    SendResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        messageId:
+          type: string
+          description: Gmail message ID of sent email
+        threadId:
+          type: string
+          description: Gmail thread ID
+        sentAt:
+          type: string
+          format: date-time
+
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Template identifier
+        name:
+          type: string
+          description: Template display name
+        subject:
+          type: string
+          description: Email subject template
+        body:
+          type: string
+          description: Email body template
+        variables:
+          type: array
+          items:
+            type: string
+          description: Available template variables
+        category:
+          type: string
+          description: Template category (support, sales, general)
+        isActive:
+          type: boolean
+          description: Whether template is active
+      required:
+        - id
+        - name
+        - subject
+        - body
+
+    TemplateListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Template'
+
+    TemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        category:
+          type: string
+        isActive:
+          type: boolean
+      required:
+        - name
+        - subject
+        - body
+
+    Sender:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address
+        name:
+          type: string
+          description: Display name
+        isActive:
+          type: boolean
+          description: Whether sender is active
+        addedAt:
+          type: string
+          format: date-time
+        lastEmailAt:
+          type: string
+          format: date-time
+          description: Last email received from this sender
+
+    SenderListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        senders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sender'
+
+    SenderRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+      required:
+        - email
+
+    AuthStatusResponse:
+      type: object
+      properties:
+        isAuthenticated:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+        scopes:
+          type: array
+          items:
+            type: string
+        accountEmail:
+          type: string
+          format: email
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: integer
+        details:
+          type: object
+
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://accounts.google.com/o/oauth2/auth
+          tokenUrl: https://oauth2.googleapis.com/token
+          scopes:
+            'https://www.googleapis.com/auth/gmail.readonly': Read Gmail messages
+            'https://www.googleapis.com/auth/gmail.modify': Modify Gmail messages
+            'https://www.googleapis.com/auth/gmail.send': Send Gmail messages
+
+security:
+  - OAuth2: []
+
+tags:
+  - name: Gmail
+    description: Gmail API operations
+  - name: Knowledge
+    description: Knowledge base management
+  - name: Authentication
+    description: OAuth authentication
+  - name: Templates
+    description: Email template management
