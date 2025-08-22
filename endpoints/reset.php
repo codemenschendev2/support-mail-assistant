@@ -30,7 +30,7 @@ try {
     $deletedFiles = [];
     $errors = [];
 
-    // Delete OAuth token file
+    // Delete OAuth token file (user's access token)
     $tokenPath = __DIR__ . '/../credentials/token.json';
     if (file_exists($tokenPath)) {
         if (unlink($tokenPath)) {
@@ -40,15 +40,8 @@ try {
         }
     }
 
-    // Delete OAuth client credentials (optional - user can keep this)
-    $clientPath = __DIR__ . '/../credentials/oauth-client.json';
-    if (file_exists($clientPath)) {
-        if (unlink($clientPath)) {
-            $deletedFiles[] = 'OAuth client credentials';
-        } else {
-            $errors[] = 'Failed to delete OAuth client credentials';
-        }
-    }
+    // Keep OAuth client credentials - they are needed for re-authentication
+    // Only tokens are deleted, allowing users to switch accounts
 
     // Clear any session data
     if (session_status() === PHP_SESSION_ACTIVE) {

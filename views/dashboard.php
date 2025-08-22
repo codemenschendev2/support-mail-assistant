@@ -99,6 +99,21 @@ if (file_exists($tokenPath)) {
         <!-- Test Results Card -->
         <div class="card status-card">
             <div class="card-header">
+                <h5>📧 Unread Emails Today (Filtered)</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-3">
+                    <small>📋 <strong>Filter:</strong> Only emails from allowed senders in knowledge base</small>
+                </div>
+                <button class="btn btn-primary mb-3" onclick="loadUnreadEmails()">🔄 Refresh Unread Emails</button>
+                <div id="unreadEmails">
+                    <p class="text-muted">Click "Refresh Unread Emails" to load today's unread emails from allowed senders.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card status-card">
+            <div class="card-header">
                 <h5>🧪 Test Results</h5>
             </div>
             <div class="card-body">
@@ -160,10 +175,58 @@ if (file_exists($tokenPath)) {
             }
         }
 
+        function loadUnreadEmails() {
+            const unreadEmailsDiv = document.getElementById('unreadEmails');
+            unreadEmailsDiv.innerHTML = '<p class="text-muted">Loading...</p>';
+
+            fetch('../endpoints/get_unread_emails.php?key=<?php echo urlencode($adminKey); ?>')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.count === 0) {
+                            unreadEmailsDiv.innerHTML = '<p class="text-success">✅ No unread emails today!</p>';
+                        } else {
+                            let html = `<h6>Found ${data.count} unread emails:</h6>`;
+                            html += '<div class="table-responsive"><table class="table table-sm">';
+                            html += '<thead><tr><th>From</th><th>Subject</th><th>Date</th><th>Snippet</th></tr></thead><tbody>';
+
+                            data.emails.forEach(email => {
+                                const from = email.from.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                const subject = email.subject || '(No Subject)';
+                                const date = new Date(email.date).toLocaleString();
+                                const snippet = email.snippet || '';
+
+                                html += `<tr>
+                                    <td><small>${from}</small></td>
+                                    <td><strong>${subject}</strong></td>
+                                    <td><small>${date}</small></td>
+                                    <td><small>${snippet}</small></td>
+                                </tr>`;
+                            });
+
+                            html += '</tbody></table></div>';
+                            unreadEmailsDiv.innerHTML = html;
+                        }
+                    } else {
+                        unreadEmailsDiv.innerHTML = `<p class="text-danger">❌ Error: ${data.error}</p>`;
+                    }
+                })
+                .catch(error => {
+                    unreadEmailsDiv.innerHTML = `<p class="text-danger">❌ Error loading emails: ${error.message}</p>`;
+                });
+        }
+
         // Auto-refresh status every 30 seconds
         setInterval(() => {
             // You can add AJAX calls here to refresh status
         }, 30000);
+
+        // Auto-refresh unread emails every 5 minutes
+        setInterval(() => {
+            if (document.getElementById('unreadEmails').innerHTML.includes('unread emails:')) {
+                loadUnreadEmails();
+            }
+        }, 300000); // 5 minutes
     </script>
 </body>
 
